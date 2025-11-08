@@ -1,65 +1,47 @@
 import { useState } from "react";
-import { ChevronDown, Plus, Bell, Sparkles } from "lucide-react";
+import { Plus, Bell } from "lucide-react";
 import { Button } from "./ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
+import { useNavigate } from "react-router-dom";
+import { CreateCircleDialog } from "@/components/CreateCircleDialog"; // ✅ imported
 
 export const TopNav = () => {
-  const [timePeriod, setTimePeriod] = useState("This Month");
-  const [aiInsightsActive, setAiInsightsActive] = useState(true);
+  const navigate = useNavigate();
+  const [openModal, setOpenModal] = useState(false);
 
   return (
-    <header className="h-16 border-b border-border flex items-center justify-between px-6 lg:px-8 bg-card/50 backdrop-blur-sm">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="gap-2">
-            {timePeriod}
-            <ChevronDown className="w-4 h-4" />
+    <>
+      <header className="h-16 border-b border-border flex items-center justify-end px-6 lg:px-8 bg-card/50 backdrop-blur-sm">
+        <div className="flex items-center gap-4">
+          {/* ➕ Create Circle Popup */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setOpenModal(true)} // ✅ open modal directly
+          >
+            <Plus className="w-5 h-5" />
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="bg-popover border-border">
-          <DropdownMenuItem onClick={() => setTimePeriod("This Week")}>
-            This Week
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setTimePeriod("This Month")}>
-            This Month
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setTimePeriod("This Quarter")}>
-            This Quarter
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setTimePeriod("This Year")}>
-            This Year
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
 
-      <div className="flex items-center gap-4">
-        <Button
-          variant={aiInsightsActive ? "default" : "outline"}
-          size="sm"
-          className="gap-2"
-          onClick={() => setAiInsightsActive(!aiInsightsActive)}
-        >
-          <Sparkles className="w-4 h-4" />
-          AI Insights {aiInsightsActive && "Active"}
-        </Button>
+          {/* 🔔 News */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/news")}
+          >
+            <Bell className="w-5 h-5" />
+          </Button>
 
-        <Button variant="ghost" size="icon">
-          <Plus className="w-5 h-5" />
-        </Button>
-
-        <Button variant="ghost" size="icon">
-          <Bell className="w-5 h-5" />
-        </Button>
-
-        <div className="w-8 h-8 rounded-full bg-gradient-violet flex items-center justify-center text-sm font-semibold">
-          IR
+          {/* 🧑‍💼 Profile */}
+          <div
+            onClick={() => navigate("/settings")}
+            className="w-8 h-8 rounded-full bg-gradient-violet flex items-center justify-center text-sm font-semibold cursor-pointer hover:opacity-90 transition"
+          >
+            IR
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* ✅ Global Create Circle Modal */}
+      <CreateCircleDialog open={openModal} onClose={() => setOpenModal(false)} />
+    </>
   );
 };
