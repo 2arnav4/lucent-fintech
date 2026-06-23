@@ -18,7 +18,7 @@ app = Flask(__name__)
 CORS(app)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///data.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SECRET_KEY"] = "your-secret-key"  # Change to secure secret
+app.config["SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY") or "your-super-secret-key-that-is-at-least-32-bytes-long"
 
 db = SQLAlchemy(app)
 
@@ -83,7 +83,7 @@ class Expense(db.Model):
 def generate_token(user_id):
     payload = {
         "user_id": user_id,
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+        "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
     }
     return jwt.encode(payload, app.config["SECRET_KEY"], algorithm="HS256")
 
@@ -284,7 +284,7 @@ def ai_insights(user_id):
 
 @app.route("/user/<int:user_id>/widgets", methods=["GET"])
 @auth_required
-def get_user_widgets(user_id_token):
+def get_user_widgets(user_id_token, user_id):
     if user_id_token != int(user_id):
         abort(403, "Unauthorized")
 
@@ -303,7 +303,7 @@ def get_user_widgets(user_id_token):
 
 @app.route("/user/<int:user_id>/widgets/<int:widget_id>", methods=["PUT"])
 @auth_required
-def update_widget_visibility(user_id_token, widget_id):
+def update_widget_visibility(user_id_token, widget_id, user_id):
     if user_id_token != int(user_id):
         abort(403, "Unauthorized")
 
@@ -452,7 +452,19 @@ def add_expense(user_id, circle_id):
     amount = data.get("amount")
     description = data.get("description") or data.get("merchant") or ""
     date_str = data.get("date")
-    date = datetime.datetime.strptime(date_str, '%Y-%m-%d') if date_str else datetime.datetime.utcnow()
+    
+    date = None
+    if date_str:
+        try:
+            date = datetime.datetime.fromisoformat(date_str)
+        except ValueError:
+            try:
+                date = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+            except ValueError:
+                pass
+    if not date:
+        date = datetime.datetime.now(datetime.timezone.utc)
+
     if not amount:
         return jsonify({"error": "Amount is required"}), 400
 
