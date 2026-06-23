@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Layout } from "@/components/Layout";
+import { API_BASE_URL } from "@/lib/api";
 
 interface NewsArticle {
   category: string;
@@ -16,7 +17,7 @@ export default function News() {
   useEffect(() => {
     async function fetchNews() {
       try {
-        const response = await fetch("https://lucent-api.onrender.com/market-news");
+        const response = await fetch(`${API_BASE_URL}/market-news`);
         if (!response.ok) throw new Error("Failed to fetch news");
 
         const data = await response.json();

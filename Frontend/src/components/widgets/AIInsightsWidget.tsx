@@ -4,6 +4,7 @@ import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
+import { API_BASE_URL } from "@/lib/api";
 
 export const AIInsightsWidget = () => {
   const [query, setQuery] = useState("");
@@ -20,7 +21,7 @@ export const AIInsightsWidget = () => {
       const token = localStorage.getItem("token"); // JWT token from login/signup
       if (!token) throw new Error("User not authenticated");
 
-      const response = await fetch("https://lucent-api.onrender.com/ai-insights", {
+      const response = await fetch(`${API_BASE_URL}/ai-insights`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

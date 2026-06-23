@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Card } from "@/components/ui/card";
+import { API_BASE_URL } from "@/lib/api";
 import {
   Select,
   SelectContent,
@@ -37,7 +38,7 @@ const Analytics = () => {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("No user token found — please log in first.");
 
-      const response = await fetch("https://lucent-api.onrender.com/ai-insights", {
+      const response = await fetch(`${API_BASE_URL}/ai-insights`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -68,7 +69,7 @@ const Analytics = () => {
     setStockData(null);
     try {
       const resp = await fetch(
-        `https://lucent-api.onrender.com/trends/stocks?symbols=${encodeURIComponent(symbols)}`
+        `${API_BASE_URL}/trends/stocks?symbols=${encodeURIComponent(symbols)}`
       );
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
@@ -89,7 +90,7 @@ const Analytics = () => {
     setCryptoError(null);
     setCryptoData(null);
     try {
-      const resp = await fetch(`https://lucent-api.onrender.com/trends/crypto`);
+      const resp = await fetch(`${API_BASE_URL}/trends/crypto`);
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
         throw new Error(body?.error || `Failed to fetch crypto: ${resp.status}`);

@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sparkles } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 
 const currencyFormat = (value: number) => {
   try {
@@ -57,7 +58,7 @@ export default function FIREWidget() {
     ).toLocaleString()} monthly expenses, and a ${savingsRate}% savings rate, estimate how many years it would take to reach financial independence (FIRE number = annual expenses × 25). Suggest actionable financial strategies to reach FIRE faster.keep it under 80 words`;
 
     try {
-      const res = await fetch("https://lucent-api.onrender.com/ai-insights", {
+      const res = await fetch(`${API_BASE_URL}/ai-insights`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

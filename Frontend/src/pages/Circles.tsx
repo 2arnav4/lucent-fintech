@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Users, Plus, IndianRupee } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { API_BASE_URL } from "@/lib/api";
 
 interface Circle {
   id: number;
@@ -38,7 +39,7 @@ const Circles = () => {
     const token = localStorage.getItem("token");
     if (!token) {
       try {
-        const signupResp = await fetch("http://127.0.0.1:5000/signup", {
+        const signupResp = await fetch(`${API_BASE_URL}/signup`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -47,14 +48,11 @@ const Circles = () => {
           }),
         });
 
-        const signupData = await signupResp.json();
-        console.log('Signup response:', signupData);
-
         if (!signupResp.ok && signupResp.status !== 409) {
-          throw new Error(`Failed to create test account: ${signupData.error || 'Unknown error'}`);
+          throw new Error("Failed to create test account");
         }
 
-        const loginResp = await fetch("http://127.0.0.1:5000/login", {
+        const loginResp = await fetch(`${API_BASE_URL}/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -86,34 +84,27 @@ const Circles = () => {
       const token = await ensureAuth();
       if (!token) return;
 
-      console.log('Fetching circles with token:', token);
-      
-      const response = await fetch("http://127.0.0.1:5000/circles", {
+      const response = await fetch(`${API_BASE_URL}/circles`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to fetch circles");
-      }
+      if (!response.ok) throw new Error("Failed to fetch circles");
 
       const data = await response.json();
 
       // 💪 Normalize data so nothing breaks
-      const safeData = data.map((circle: Circle) => ({
-        id: circle.id,
-        name: circle.name,
-        owner_id: circle.owner_id,
+      const safeData = data.map((circle: any) => ({
+        ...circle,
         members: circle.members || [],
         expenses: circle.expenses || [],
       }));
 
       setCircles(safeData);
       if (safeData.length > 0) setSelectedCircle(safeData[0]);
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load circles",
+        description: "Failed to load circles",
         variant: "destructive",
       });
     }
@@ -137,26 +128,7 @@ const Circles = () => {
         return;
       }
 
-      if (!newCircle.name.trim()) {
-        toast({
-          title: "Error",
-          description: "Circle name is required",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      // First, get member IDs from emails
-      const memberEmails = newCircle.members
-        .split(",")
-        .map((email) => email.trim())
-        .filter(Boolean);
-
-      console.log('Creating circle with token:', token);
-      
-      // Create a new circle with just the name first
-      const createResponse = await fetch("http://127.0.0.1:5000/circles", {
+      const response = await fetch(`${API_BASE_URL}/circles`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -164,22 +136,22 @@ const Circles = () => {
         },
         body: JSON.stringify({
           name: newCircle.name,
-          member_ids: [], // Initially empty, we'll update it after creating
+          members: newCircle.members
+            .split(",")
+            .map((email) => email.trim())
+            .filter(Boolean),
         }),
       });
 
-      if (!createResponse.ok) {
-        const error = await createResponse.json();
-        throw new Error(error.error || "Failed to create circle");
-      }
+      if (!response.ok) throw new Error("Failed to create circle");
 
       await fetchCircles();
       setNewCircle({ name: "", members: "" });
       toast({ title: "Success", description: "Circle created successfully" });
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create circle",
+        description: "Failed to create circle",
         variant: "destructive",
       });
     } finally {
@@ -200,7 +172,7 @@ const Circles = () => {
       }
 
       const response = await fetch(
-        `https://lucent-api.onrender.com/circles/${selectedCircle.id}/expenses`,
+        `${API_BASE_URL}/circles/${selectedCircle.id}/expenses`,
         {
           method: "POST",
           headers: {

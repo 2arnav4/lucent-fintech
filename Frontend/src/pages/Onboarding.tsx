@@ -1,12 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Wallet, TrendingUp, Bitcoin, Users, PieChart, ArrowRight, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
 
 const interests = [
   { id: "banking", label: "Banking", icon: Wallet },
@@ -18,20 +15,8 @@ const interests = [
 
 const Onboarding = () => {
   const navigate = useNavigate();
-  const { user, signin, signup, isAuthenticated } = useAuth();
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(1);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
-  const [isSignIn, setIsSignIn] = useState(true);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    // If user is already authenticated, skip the auth step
-    if (isAuthenticated) {
-      setStep(1);
-    }
-  }, [isAuthenticated]);
 
   const toggleInterest = (id: string) => {
     setSelectedInterests((prev) =>
@@ -43,85 +28,9 @@ const Onboarding = () => {
     navigate("/dashboard");
   };
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      if (isSignIn) {
-        await signin(email, password);
-      } else {
-        await signup(email, password);
-      }
-      setStep(1);
-    } catch (error) {
-      // Error handling is done in AuthContext
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-4xl">
-        {step === 0 && (
-          <Card className="w-full max-w-md p-8 space-y-6 bg-card border-border mx-auto">
-            <div className="space-y-2 text-center">
-              <h1 className="text-3xl font-bold text-foreground">
-                {isSignIn ? "Welcome Back" : "Join Lucent"}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {isSignIn
-                  ? "Sign in to continue with onboarding"
-                  : "Create an account to get started"}
-              </p>
-            </div>
-
-            <form onSubmit={handleAuth} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading
-                  ? "Loading..."
-                  : isSignIn
-                  ? "Sign In"
-                  : "Create Account"}
-              </Button>
-            </form>
-
-            <div className="text-center">
-              <button
-                onClick={() => setIsSignIn(!isSignIn)}
-                className="text-sm text-muted-foreground hover:text-primary transition-colors"
-              >
-                {isSignIn
-                  ? "Don't have an account? Sign up"
-                  : "Already have an account? Sign in"}
-              </button>
-            </div>
-          </Card>
-        )}
-        
         {step === 1 && (
           <div className="text-center space-y-8 animate-fade-in">
             <div className="space-y-4">
