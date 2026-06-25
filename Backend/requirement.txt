@@ -4,6 +4,4 @@ Flask-SQLAlchemy
 Werkzeug
 PyJWT
 requests
-google-genai
-requests
 gunicorn

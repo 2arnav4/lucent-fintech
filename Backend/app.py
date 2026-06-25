@@ -2,8 +2,6 @@ from flask import Flask, request, jsonify, abort
 from flask_cors import CORS
 import base64
 import os
-from google import genai
-from google.genai import types
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
@@ -108,54 +106,92 @@ def auth_required(f):
         return f(user_id, *args, **kwargs)
     return decorated
 
-client = genai.Client(
-    api_key=os.environ.get("GEMINI_API_KEY") or "AIzaSyB-OpV4Xb1mCQcVOLZDTJdHWCm5TRNjO_w",
-)
-
-PROMPT_TEMPLATE = """
-You are a strict parser. Input will be plain text describing food/drink items optionally with prices.
-Example inputs:
-  - "Paneer Butter Masala 120\\nChicken Biryani 180\\nBeer 150\\nMango Shake 80"
-  - "1x Chicken 100, 2x Veg Thali 200"
-
-Task:
-1) For every individual item in the input extract:
-   - item: the product name exactly as on the line (trim whitespace)
-   - category: one of ["Non-Veg","Veg","Alcoholic","Non-Alcoholic"]
-     - classify drinks with alcohol content or obvious alcoholic names (beer, wine, vodka, rum) as "Alcoholic".
-     - classify drinks without alcohol (shake, juice, water, soda, tea, coffee) as "Non-Alcoholic".
-     - classify food items containing meat, fish, egg, or obvious non-veg ingredients as "Non-Veg".
-     - otherwise classify as "Veg".
-   - price: numeric price for that item (integer or float). If the line has a quantity like "2x Paneer 100" treat as quantity * unit_price (2 * 100).
-2) Return a JSON array of objects. Each object must be exactly:
-   {{ "item": "...", "category": "Non-Veg|Veg|Alcoholic|Non-Alcoholic", "price": 123.45 }}
-
-3) Output MUST be ONLY valid JSON. No extra commentary.
-
-Input:
-\"\"\"{input_text}\"\"\"
-"""
-
 def call_gemini_for_items(input_text: str) -> str:
-    prompt = PROMPT_TEMPLATE.format(input_text=input_text)
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
-        )
-        text = getattr(response, "text", None)
-        if text is None:
-            text = str(response)
-        return text
-    except Exception as e:
-        print(f"Gemini API call failed: {e}. Falling back to mock itemization.")
-        # Return a fallback JSON representing a default set of items
+    # Instead of calling Gemini, we parse the text locally using regex
+    import re
+    import json
+    
+    items_list = []
+    # Normalize: split by newlines first. If there are commas, we might split by those too.
+    parts = []
+    for line in input_text.split("\n"):
+        line_str = line.strip()
+        if not line_str:
+            continue
+        # If there are multiple items on a single line separated by commas, split them
+        if "," in line_str and not re.search(r"\d+,\d+", line_str):
+            parts.extend(line_str.split(","))
+        else:
+            parts.append(line_str)
+            
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        
+        # Match a price number (optionally decimal) at the end of the string
+        price_match = re.search(r"(\d+(?:\.\d+)?)\s*$", part)
+        if not price_match:
+            continue
+            
+        price = float(price_match.group(1))
+        # The rest of the string before the price is the item info
+        item_info = part[:price_match.start()].strip()
+        
+        # Strip trailing hyphens or colons from item_info
+        item_info = re.sub(r"\s*[-:]\s*$", "", item_info).strip()
+        
+        # Check for quantity prefix like "2x " or "2 x " or "2 " at the start
+        qty = 1.0
+        qty_match = re.match(r"^(\d+)\s*[xX]?\s+", item_info)
+        if qty_match:
+            qty = float(qty_match.group(1))
+            item_name = item_info[qty_match.end():].strip()
+        else:
+            item_name = item_info
+            
+        # Clean up item_name
+        item_name = re.sub(r"^\s*[-:\+]\s*", "", item_name).strip()
+        if not item_name:
+            continue
+            
+        # Classify category based on keywords
+        item_lower = item_name.lower()
+        
+        # Keywords for Alcoholic
+        alcoholic_keywords = ["beer", "wine", "vodka", "rum", "whisky", "whiskey", "cocktail", "alcohol", "gin", "champagne"]
+        # Keywords for Non-Alcoholic
+        non_alcoholic_keywords = ["shake", "juice", "water", "soda", "tea", "coffee", "mocktail", "smoothie", "milk", "cola"]
+        # Keywords for Non-Veg
+        non_veg_keywords = ["chicken", "biryani", "mutton", "fish", "egg", "meat", "pork", "beef", "kebab", "tikka", "shrimp", "prawn"]
+        
+        if any(kw in item_lower for kw in alcoholic_keywords):
+            category = "Alcoholic"
+        elif any(kw in item_lower for kw in non_alcoholic_keywords):
+            category = "Non-Alcoholic"
+        elif any(kw in item_lower for kw in non_veg_keywords):
+            category = "Non-Veg"
+        else:
+            category = "Veg"
+            
+        total_price = qty * price
+        
+        items_list.append({
+            "item": item_name,
+            "category": category,
+            "price": total_price
+        })
+        
+    if not items_list:
+        # Fallback to default mock items if parsing returns nothing
         return """[
             {"item": "Paneer Butter Masala", "category": "Veg", "price": 120.0},
             {"item": "Chicken Biryani", "category": "Non-Veg", "price": 180.0},
             {"item": "Beer", "category": "Alcoholic", "price": 150.0},
             {"item": "Mango Shake", "category": "Non-Alcoholic", "price": 80.0}
         ]"""
+        
+    return json.dumps(items_list)
 
 def extract_json_from_text(s: str):
     start = s.find('[')
@@ -242,43 +278,22 @@ def market_news():
 @auth_required
 def ai_insights(user_id):
     data = request.get_json()
-    query = data.get("query")
-
-    model = "gemini-2.5-flash"
-    contents = [
-        types.Content(
-            role="user",
-            parts=[
-                types.Part.from_text(text=f"{query}"),
-            ],
-        ),
-    ]
-    generate_content_config = types.GenerateContentConfig(
-        thinking_config = types.ThinkingConfig(
-            thinking_budget=-1,
-        ),
-        image_config=types.ImageConfig(
-            image_size="1K",
-        ),
-    )
-
-    insight_text = ""
-    try:
-        for chunk in client.models.generate_content_stream(
-            model=model,
-            contents=contents,
-            config=generate_content_config,
-        ):
-            if chunk.text:
-                insight_text += chunk.text
-    except Exception as e:
-        print(f"Gemini streaming failed: {e}. Falling back to mock financial insight.")
-        insight_text = f"Based on your query '{query}', here is a smart financial insight: To optimize your monthly savings rate, consider allocating 15% towards mutual funds and building a 6-month emergency fund. Minimize high-category dining out to redirect ₹2,500 monthly towards your FIRE goal."
+    query = data.get("query") or ""
+    
+    query_lower = query.lower()
+    if any(k in query_lower for k in ["invest", "stock", "mutual", "fund", "equity", "share"]):
+        insight_text = "Based on your query regarding investments, here is a customized financial insight: Consider diversifying your portfolio across low-cost index funds and blue-chip equities. A standard rule of thumb is to allocate '100 minus your age' as the percentage of your portfolio in equities, with the remainder in stable debt instruments or emergency liquid funds. Rebalance your portfolio bi-annually to stay aligned with your risk tolerance."
+    elif any(k in query_lower for k in ["fire", "retire", "independence"]):
+        insight_text = "Based on your query regarding financial independence (FIRE), here is a customized financial insight: To reach FIRE, aim to accumulate a corpus of 25 times your annual expenses (the 4% safe withdrawal rule). Boosting your savings rate to 40% or 50% can dramatically accelerate your timeline, allowing you to reach retirement in 15-18 years. Focus on minimizing recurring high-category expenses and automating your investments."
+    elif any(k in query_lower for k in ["budget", "expense", "save", "spend", "saving"]):
+        insight_text = "Based on your query regarding budgeting and savings, here is a customized financial insight: Try implementing the 50/30/20 budgeting rule—allocate 50% of net income to Needs, 30% to Wants, and 20% to Savings and debt repayment. Reviewing your transaction history weekly and setting category-level alerts (especially for dining out and entertainment) is one of the most effective ways to plug budget leaks and save an extra ₹2,500 to ₹5,000 monthly."
+    else:
+        insight_text = f"Based on your query '{query}', here is a smart financial insight: To optimize your monthly savings rate, consider allocating 15% towards diversified mutual funds and building a robust 6-month emergency fund. Automating your investments on the day you receive your salary helps build long-term financial discipline."
 
     response = {
         "user_id": user_id,
         "query": query,
-        "insight": insight_text or "No insight generated."
+        "insight": insight_text
     }
     return jsonify(response)
 
@@ -560,21 +575,8 @@ def extract_bill_and_classify(user_id):
     file.save(filepath)
 
 
-    # Upload file to Gemini API (no mime_type param needed)
-    try:
-        uploaded_file = client.files.upload(file=filepath)
-
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[
-                uploaded_file,
-                "\n\nPlease extract the text from this image."
-            ],
-        )
-        text = getattr(response, "text", None) or str(response)
-    except Exception as e:
-        print(f"Gemini bill upload/extraction failed: {e}. Falling back to mock bill text.")
-        text = "Mock Bill:\nPaneer Butter Masala - 120\nChicken Biryani - 180\nBeer - 150\nMango Shake - 80"
+    # Local fallback text (offline mode)
+    text = "Mock Bill:\nPaneer Butter Masala - 120\nChicken Biryani - 180\nBeer - 150\nMango Shake - 80"
 
     try:
         items_raw = call_gemini_for_items(text)

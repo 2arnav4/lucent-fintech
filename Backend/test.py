@@ -109,7 +109,7 @@ def test_circles_and_expenses(token_user1, token_user2):
     split_resp = requests.post(split_url, headers=headers_user1, json=split_data)
     safe_print_response(split_resp, "Split Expenses (Equal)")
 
-    # 6. Split expenses (Dietary Preference Split - uses Gemini fallback)
+    # 6. Split expenses (Dietary Preference Split - processed locally)
     dietary_data = {
         "method": "dietary",
         "preferences": {
@@ -119,7 +119,7 @@ def test_circles_and_expenses(token_user1, token_user2):
         }
     }
     dietary_resp = requests.post(split_url, headers=headers_user1, json=dietary_data)
-    safe_print_response(dietary_resp, "Split Expenses (Dietary Split via Gemini)")
+    safe_print_response(dietary_resp, "Split Expenses (Dietary Split)")
 
     # 7. Remove expense
     if expense_id:

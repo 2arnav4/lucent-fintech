@@ -119,13 +119,11 @@ Framer Motion for smooth animations
 
 React Query for API state management
 
-🧠 AI Layer
+🧠 Processing Layer
 
-OpenAI / Gemini API for LLM-powered financial insights
+Local regex parser for offline billing extraction and smart local financial insights
 
-LangChain for context-aware financial prompt chaining
-
-OCR via Tesseract.js for reading bills and receipts
+Mock processing for reading bills and receipts
 
 🧾 APIs & Data
 
